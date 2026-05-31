@@ -25,7 +25,7 @@ export default function UnlockPage() {
       unlock(vaultKey);
       navigate("/");
     } catch {
-      setError("Incorrect master password.");
+      setError("Incorrect password.");
     } finally {
       setLoading(false);
     }
@@ -36,13 +36,13 @@ export default function UnlockPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <Logo centered />
-          <p className="mt-3 text-sm text-tresor-400">Welcome back, {email}</p>
+          <p className="mt-3 text-sm text-tresor-400">Vault locked — {email}</p>
         </div>
 
         <Card>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="Master password"
+              label="Password"
               type="password"
               icon={<Lock className="h-4 w-4" />}
               value={password}

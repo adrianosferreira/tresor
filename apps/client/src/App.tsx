@@ -10,8 +10,8 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/register" element={token ? <Navigate to="/unlock" replace /> : <RegisterPage />} />
-      <Route path="/login" element={token ? <Navigate to="/unlock" replace /> : <LoginPage />} />
+      <Route path="/register" element={token && !locked ? <Navigate to="/" replace /> : token ? <Navigate to="/unlock" replace /> : <RegisterPage />} />
+      <Route path="/login" element={token && !locked ? <Navigate to="/" replace /> : token ? <Navigate to="/unlock" replace /> : <LoginPage />} />
       <Route
         path="/unlock"
         element={!token ? <Navigate to="/login" replace /> : locked ? <UnlockPage /> : <Navigate to="/" replace />}

@@ -1,10 +1,39 @@
 <p align="center">
-  <img src="public/images/logo.png" alt="Tresor logo" width="160">
+  <img src="public/images/logo.png" alt="Tresor logo" width="200">
 </p>
 
-# Tresor
+<h1 align="center">Tresor</h1>
 
-Self-hosted, zero-knowledge password vault.
+<p align="center">
+  <strong>Your secrets. Your server. Zero knowledge.</strong>
+</p>
+
+<p align="center">
+  Tresor is a self-hosted password vault for people who want full control without giving up security.<br>
+  Passwords, credentials, and notes are encrypted on your device before they ever reach the server —<br>
+  so even if someone gets your database, your vault stays locked without your password.
+</p>
+
+<p align="center">
+  <a href="#quick-start-development">Get started</a>
+  ·
+  <a href="#self-hosted-production">Self-host</a>
+  ·
+  <a href="docs/SECURITY.md">Security</a>
+</p>
+
+## Why Tresor?
+
+| Feature | Description |
+|---------|-------------|
+| **Zero-knowledge** | Your password and decrypted secrets never leave the browser. The server stores only ciphertext. |
+| **Self-hosted** | Run on your own machine with Docker. No cloud subscription, no vendor lock-in. |
+| **Organized** | Projects → categories → secrets. Structure your vault the way you think. |
+| **Simple ops** | One script to spin up the full dev stack. Production deploy is Docker Compose + Caddy. |
+
+```
+You encrypt locally  →  Server stores locked data  →  Only your password opens the vault
+```
 
 ## Architecture
 
@@ -12,46 +41,39 @@ Self-hosted, zero-knowledge password vault.
 - **Server** — Go API (chi + PostgreSQL)
 - **Proxy** — Caddy for routing and TLS
 
-```
-Browser → Caddy → React (static) + Go API → PostgreSQL
-                      ↓
-              Encrypt/decrypt locally
-```
-
 ## Quick start (development)
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm 10+
-- Go 1.23+
-- Docker & Docker Compose
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose
 
-### 1. Start the database and API
+No local Node.js, pnpm, or Go required — everything runs in containers.
+
+### Start the dev stack
 
 ```bash
-docker compose -f deploy/docker-compose.dev.yml up -d
+./scripts/start-dev.sh
 ```
 
-### 2. Install dependencies and run the client
+This starts PostgreSQL, the Go API, and the Vite dev server, then streams client logs. Press **Ctrl+C** to detach (containers keep running).
+
+| Service | URL |
+|---------|-----|
+| Client | [http://localhost:5173](http://localhost:5173) |
+| API | [http://localhost:8080](http://localhost:8080) |
+
+**Useful flags:**
 
 ```bash
-pnpm install
-pnpm --filter @tresor/crypto build
-pnpm --filter @tresor/shared build
-pnpm --filter @tresor/client dev
+./scripts/start-dev.sh --detach    # start in background, no log stream
+./scripts/start-dev.sh --rebuild   # force rebuild Docker images
+./scripts/start-dev.sh --help      # show all options
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
-
-### 3. Run the Go server locally (alternative to Docker API)
+**Stop the stack:**
 
 ```bash
-cd apps/server
-export DATABASE_URL="postgres://tresor:tresor_dev_password@localhost:5432/tresor?sslmode=disable"
-export JWT_SECRET="dev-jwt-secret-change-in-production"
-export CORS_ORIGIN="http://localhost:5173"
-go run ./cmd/tresor
+docker compose -f deploy/docker-compose.dev.yml down
 ```
 
 ## Self-hosted (production)
@@ -84,7 +106,8 @@ tresor/
 ├── packages/
 │   ├── crypto/     # Encryption primitives
 │   └── shared/     # Shared types & Zod schemas
-└── deploy/         # Docker Compose + Caddy
+├── deploy/         # Docker Compose + Caddy
+└── scripts/        # Dev helpers (start-dev.sh)
 ```
 
 ## API

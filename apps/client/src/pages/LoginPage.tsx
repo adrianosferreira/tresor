@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { deriveKeys, bytesToBase64 } from "@tresor/crypto";
+import { deriveKeys, decryptVaultKey, unlockVault, bytesToBase64 } from "@tresor/crypto";
 import { LogIn, Lock, Mail, UserPlus } from "lucide-react";
 import { api, fromEncryptedBlob } from "../lib/api";
 import { useVaultStore } from "../store/vault";
@@ -10,6 +10,7 @@ import type { AuthResponse } from "@tresor/shared";
 export default function LoginPage() {
   const navigate = useNavigate();
   const setSession = useVaultStore((s) => s.setSession);
+  const unlock = useVaultStore((s) => s.unlock);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,22 +36,26 @@ export default function LoginPage() {
       };
 
       const salt = Uint8Array.from(atob(kdfSalt), (c) => c.charCodeAt(0));
-      const { authKey } = await deriveKeys(password, salt, kdfParams);
+      const { authKey, encryptionKey } = await deriveKeys(password, salt, kdfParams);
 
       const response = (await api.login({
         email,
         authKeyProof: bytesToBase64(authKey),
       })) as AuthResponse;
 
+      const encryptedVaultKey = fromEncryptedBlob(response.user.encryptedVaultKey);
+      const vaultKey = decryptVaultKey(encryptedVaultKey, encryptionKey);
+
       setSession({
         token: response.token,
         email: response.user.email,
         kdfSalt: salt,
         kdfParams: kdfParams,
-        encryptedVaultKey: fromEncryptedBlob(response.user.encryptedVaultKey),
+        encryptedVaultKey,
       });
+      unlock(vaultKey);
 
-      navigate("/unlock");
+      navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -77,7 +82,7 @@ export default function LoginPage() {
               required
             />
             <Input
-              label="Master password"
+              label="Password"
               type="password"
               icon={<Lock className="h-4 w-4" />}
               value={password}

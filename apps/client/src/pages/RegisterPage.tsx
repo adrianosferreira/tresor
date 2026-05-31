@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createVaultRegistrationMaterial, bytesToBase64 } from "@tresor/crypto";
+import { createVaultRegistrationMaterial, unlockVault, bytesToBase64 } from "@tresor/crypto";
 import { KeyRound, Lock, LogIn, Mail, ShieldAlert } from "lucide-react";
 import { api, fromEncryptedBlob, toEncryptedBlob } from "../lib/api";
 import { useVaultStore } from "../store/vault";
@@ -10,6 +10,7 @@ import type { AuthResponse } from "@tresor/shared";
 export default function RegisterPage() {
   const navigate = useNavigate();
   const setSession = useVaultStore((s) => s.setSession);
+  const unlock = useVaultStore((s) => s.unlock);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -21,7 +22,7 @@ export default function RegisterPage() {
     setError("");
 
     if (password.length < 12) {
-      setError("Master password must be at least 12 characters.");
+      setError("Password must be at least 12 characters.");
       return;
     }
     if (password !== confirm) {
@@ -48,7 +49,15 @@ export default function RegisterPage() {
         encryptedVaultKey: fromEncryptedBlob(response.user.encryptedVaultKey),
       });
 
-      navigate("/unlock");
+      const vaultKey = await unlockVault(
+        password,
+        material.salt,
+        material.kdfParams,
+        material.encryptedVaultKey,
+      );
+      unlock(vaultKey);
+
+      navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -75,7 +84,7 @@ export default function RegisterPage() {
               required
             />
             <Input
-              label="Master password"
+              label="Password"
               type="password"
               icon={<Lock className="h-4 w-4" />}
               value={password}
@@ -84,7 +93,7 @@ export default function RegisterPage() {
               autoComplete="new-password"
             />
             <Input
-              label="Confirm master password"
+              label="Confirm password"
               type="password"
               icon={<KeyRound className="h-4 w-4" />}
               value={confirm}
@@ -94,7 +103,7 @@ export default function RegisterPage() {
             />
             <p className="flex items-start gap-2 rounded-lg border border-tresor-800 bg-tresor-950/50 px-3 py-2.5 text-xs text-tresor-400">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-tresor-500" />
-              <span>Your master password never leaves this device. If you lose it, your vault cannot be recovered.</span>
+              <span>Your password never leaves this device. If you lose it, your vault cannot be recovered.</span>
             </p>
             {error && <ErrorMessage message={error} />}
             <Button type="submit" className="inline-flex w-full items-center justify-center gap-2" disabled={loading}>
