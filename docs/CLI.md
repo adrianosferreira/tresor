@@ -53,26 +53,30 @@ From the repository root:
 
 ```bash
 pnpm install
-pnpm --filter @tresor/crypto --filter @tresor/shared --filter @tresor/cli build
+pnpm cli:build
 ```
 
-**Optional — global command:**
+**Monorepo shortcut** (from repo root, after `cli:build`):
+
+```bash
+pnpm tresor login
+pnpm tresor secret get prod/stripe --field apiKey
+pnpm tresor logout
+```
+
+This runs `pnpm --filter @tresor/cli exec tresor`, which uses the `tresor` bin defined in `apps/cli/package.json` (`dist/index.js`).
+
+**Optional — global command** (no `pnpm` prefix anywhere):
 
 ```bash
 pnpm --filter @tresor/cli link --global
 tresor login
 ```
 
-**Without global link**, prefix commands with:
-
-```bash
-pnpm --filter @tresor/cli exec node apps/cli/dist/index.js <command>
-```
-
 Rebuild after pulling CLI changes:
 
 ```bash
-pnpm --filter @tresor/cli build
+pnpm cli:build
 ```
 
 ## Prepare secrets in the UI

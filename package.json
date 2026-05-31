@@ -7,7 +7,9 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "cli:build": "pnpm --filter @tresor/crypto --filter @tresor/shared --filter @tresor/cli build",
+    "tresor": "pnpm --filter @tresor/cli exec node dist/index.js"
   },
   "devDependencies": {
     "turbo": "^2.5.4",

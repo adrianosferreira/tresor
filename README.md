@@ -134,10 +134,10 @@ tresor/
 Fetch secrets from the terminal or CI (Jenkins, GitHub Actions) with zero-knowledge decryption on the agent.
 
 ```bash
-pnpm install && pnpm --filter @tresor/cli build
+pnpm install && pnpm cli:build
 export TRESOR_API_URL=http://localhost:8080
-tresor login
-tresor secret get prod/stripe --field apiKey
+pnpm tresor login
+pnpm tresor secret get prod/stripe --field apiKey
 ```
 
 Full guide — install, aliases, session file, Jenkins pipelines: **[docs/CLI.md](docs/CLI.md)**
