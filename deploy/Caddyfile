@@ -1,0 +1,33 @@
+{
+	admin off
+}
+
+:80 {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	handle /health {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+}
+
+# Production with TLS — set PUBLIC_DOMAIN in .env and uncomment:
+# {$PUBLIC_DOMAIN} {
+#     encode gzip
+#     handle /api/* {
+#         reverse_proxy api:8080
+#     }
+#     handle /health {
+#         reverse_proxy api:8080
+#     }
+#     handle {
+#         reverse_proxy web:80
+#     }
+# }

@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-tresor-50: #f4f7fb;
+  --color-tresor-100: #e8eef6;
+  --color-tresor-200: #cddaea;
+  --color-tresor-300: #a1bcd8;
+  --color-tresor-400: #6e98c2;
+  --color-tresor-500: #4d7aad;
+  --color-tresor-600: #3a6193;
+  --color-tresor-700: #314f78;
+  --color-tresor-800: #2c4465;
+  --color-tresor-900: #283a55;
+  --color-tresor-950: #1a2538;
+}
+
+body {
+  @apply bg-tresor-950 text-tresor-50 antialiased;
+}

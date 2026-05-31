@@ -1,0 +1,59 @@
+Tresor Personal Use License 1.0
+
+Copyright (c) 2026 Tresor contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to use, copy,
+modify, merge, publish, and distribute the Software, subject to the following
+conditions:
+
+1. Personal and non-commercial use only
+
+   You may use the Software only for personal, non-commercial purposes. Personal
+   use includes self-hosting for yourself, your household, or other individuals
+   where no fee is charged and no commercial benefit is sought.
+
+2. No commercial use
+
+   Commercial use of the Software is not permitted without a separate written
+   agreement from the copyright holder(s). Commercial use includes, without
+   limitation:
+
+   - Use by a company, organization, or other legal entity in the course of
+     business operations
+   - Offering the Software, or any service based on it, to third parties for
+     money or other commercial advantage
+   - Selling, licensing, or sublicensing the Software or derivative works
+   - Using the Software to provide a hosted or managed service to customers
+   - Internal deployment by businesses, even if no fee is charged to end users
+
+3. Distribution
+
+   If you distribute the Software or derivative works, you must:
+
+   - Include a copy of this license
+   - State significant changes made to the Software
+   - Not remove or alter copyright or license notices
+
+   Any distribution remains subject to the personal and non-commercial use
+   restrictions above. Recipients may not use the Software commercially.
+
+4. Contributions
+
+   By contributing to this project, you agree that your contributions may be
+   licensed under this license.
+
+5. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+   OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+6. Commercial licensing
+
+   For commercial use, contact the project maintainers to obtain a separate
+   license.
