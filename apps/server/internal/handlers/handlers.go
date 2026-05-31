@@ -228,6 +228,25 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, category)
 }
 
+func (h *Handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromContext(r.Context())
+	categoryID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid category id")
+		return
+	}
+
+	if err := h.vault.DeleteCategory(r.Context(), userID, categoryID); err != nil {
+		if errors.Is(err, vault.ErrNotFound) || errors.Is(err, vault.ErrForbidden) {
+			writeError(w, http.StatusNotFound, "category not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to delete category")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromContext(r.Context())
 	categoryID, err := uuid.Parse(chi.URLParam(r, "id"))

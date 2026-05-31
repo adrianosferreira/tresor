@@ -3,6 +3,7 @@ import {
   Briefcase,
   Check,
   Copy,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
@@ -14,6 +15,8 @@ import {
   LogOut,
   Plus,
   StickyNote,
+  Trash2,
+  Upload,
   User,
 } from "lucide-react";
 import {
@@ -26,7 +29,13 @@ import {
 import type { Category, Project, Secret } from "@tresor/shared";
 import { api, fromEncryptedBlob, toEncryptedBlob } from "../lib/api";
 import { useVaultStore } from "../store/vault";
-import { Button, Card, Input, Textarea } from "../components/ui";
+import { Button, Card, ConfirmDeleteDialog, Input, Textarea } from "../components/ui";
+import { VaultBackupDialog } from "../components/VaultBackupDialog";
+
+type DeleteTarget =
+  | { type: "project"; item: Project; name: string }
+  | { type: "category"; item: Category; name: string }
+  | { type: "secret"; item: Secret; name: string };
 
 function decryptName(
   blob: { ciphertext: string; nonce: string },
@@ -158,6 +167,9 @@ export default function VaultPage() {
   });
   const [error, setError] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [backupDialog, setBackupDialog] = useState<"export" | "import" | null>(null);
 
   const loadProjects = useCallback(async () => {
     if (!token) return;
@@ -256,6 +268,67 @@ export default function VaultPage() {
     setSelectedSecret(data.find((s) => s.id === created.id) ?? created);
   }
 
+  function openDeleteTarget(target: DeleteTarget) {
+    setDeleteTarget(target);
+  }
+
+  async function handleConfirmDelete() {
+    if (!token || !deleteTarget) return;
+
+    setDeleting(true);
+    setError("");
+    try {
+      if (deleteTarget.type === "project") {
+        const id = deleteTarget.item.id;
+        await api.deleteProject(token, id);
+        const data = (await api.listProjects(token)) as Project[];
+        setProjects(data);
+        if (selectedProject?.id === id) {
+          setSelectedProject(data[0] ?? null);
+          setSelectedCategory(null);
+          setSelectedSecret(null);
+          setCategories([]);
+          setSecrets([]);
+        }
+      } else if (deleteTarget.type === "category") {
+        const id = deleteTarget.item.id;
+        await api.deleteCategory(token, id);
+        const data = (await api.listCategories(token, selectedProject!.id)) as Category[];
+        setCategories(data);
+        if (selectedCategory?.id === id) {
+          setSelectedCategory(data[0] ?? null);
+          setSelectedSecret(null);
+          setSecrets([]);
+        }
+      } else {
+        const id = deleteTarget.item.id;
+        await api.deleteSecret(token, id);
+        const data = (await api.listSecrets(token, selectedCategory!.id)) as Secret[];
+        setSecrets(data);
+        if (selectedSecret?.id === id) {
+          setSelectedSecret(data[0] ?? null);
+          setIsCreatingSecret(data.length === 0);
+        }
+      }
+      setDeleteTarget(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleVaultImported() {
+    if (!token) return;
+    const data = (await api.listProjects(token)) as Project[];
+    setProjects(data);
+    setSelectedProject(data[0] ?? null);
+    setSelectedCategory(null);
+    setSelectedSecret(null);
+    setCategories([]);
+    setSecrets([]);
+  }
+
   function getSecretPayload(secret: Secret): SecretPayload | null {
     if (!vaultKey) return null;
     try {
@@ -280,6 +353,26 @@ export default function VaultPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {vaultKey && token && (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setBackupDialog("export")}
+                className="inline-flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setBackupDialog("import")}
+                className="inline-flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+            </>
+          )}
           <Button variant="ghost" onClick={lock} className="inline-flex items-center gap-2">
             <Lock className="h-4 w-4" />
             Lock
@@ -321,6 +414,23 @@ export default function VaultPage() {
               Add project
             </Button>
           </form>
+          {selectedProject && vaultKey && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 text-xs text-red-400 hover:bg-red-950/40 hover:text-red-300"
+              onClick={() =>
+                openDeleteTarget({
+                  type: "project",
+                  item: selectedProject,
+                  name: decryptName(selectedProject.nameEncrypted, vaultKey),
+                })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete project
+            </Button>
+          )}
         </aside>
 
         {/* Categories */}
@@ -355,6 +465,23 @@ export default function VaultPage() {
                   Add category
                 </Button>
               </form>
+              {selectedCategory && vaultKey && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="mt-2 inline-flex w-full items-center justify-center gap-2 text-xs text-red-400 hover:bg-red-950/40 hover:text-red-300"
+                  onClick={() =>
+                    openDeleteTarget({
+                      type: "category",
+                      item: selectedCategory,
+                      name: decryptName(selectedCategory.nameEncrypted, vaultKey),
+                    })
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete category
+                </Button>
+              )}
             </>
           ) : (
             <p className="text-sm text-tresor-500">Select a project</p>
@@ -433,10 +560,29 @@ export default function VaultPage() {
             </Card>
           ) : selectedSecret && selectedPayload ? (
             <Card>
-              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                <KeyRound className="h-5 w-5 text-tresor-400" />
-                {vaultKey ? decryptName(selectedSecret.titleEncrypted, vaultKey) : "…"}
-              </h2>
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <KeyRound className="h-5 w-5 text-tresor-400" />
+                  {vaultKey ? decryptName(selectedSecret.titleEncrypted, vaultKey) : "…"}
+                </h2>
+                {vaultKey && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="inline-flex shrink-0 items-center gap-2 text-xs text-red-400 hover:bg-red-950/40 hover:text-red-300"
+                    onClick={() =>
+                      openDeleteTarget({
+                        type: "secret",
+                        item: selectedSecret,
+                        name: decryptName(selectedSecret.titleEncrypted, vaultKey),
+                      })
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </Button>
+                )}
+              </div>
               <dl className="space-y-3 text-sm">
                 {selectedPayload.username && (
                   <CopyableField label="Username" value={selectedPayload.username} icon={<User className="h-3.5 w-3.5" />} />
@@ -482,6 +628,38 @@ export default function VaultPage() {
           )}
         </main>
       </div>
+
+      <ConfirmDeleteDialog
+        open={deleteTarget !== null}
+        title={
+          deleteTarget?.type === "project"
+            ? "Delete project"
+            : deleteTarget?.type === "category"
+              ? "Delete category"
+              : "Delete secret"
+        }
+        message={
+          deleteTarget?.type === "project"
+            ? "This permanently deletes the project and all its categories and secrets."
+            : deleteTarget?.type === "category"
+              ? "This permanently deletes the category and all its secrets."
+              : "This permanently deletes the secret."
+        }
+        confirmPhrase={deleteTarget?.name ?? ""}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        confirming={deleting}
+      />
+
+      {backupDialog && token && vaultKey && (
+        <VaultBackupDialog
+          mode={backupDialog}
+          token={token}
+          vaultKey={vaultKey}
+          onClose={() => setBackupDialog(null)}
+          onImported={handleVaultImported}
+        />
+      )}
     </div>
   );
 }

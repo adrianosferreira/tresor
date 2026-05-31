@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import { useEffect, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { AlertCircle, KeyRound } from "lucide-react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -88,5 +88,63 @@ export function ErrorMessage({ message }: { message: string }) {
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
       <span>{message}</span>
     </p>
+  );
+}
+
+export function ConfirmDeleteDialog({
+  open,
+  title,
+  message,
+  confirmPhrase,
+  onConfirm,
+  onCancel,
+  confirming = false,
+}: {
+  open: boolean;
+  title: string;
+  message: string;
+  confirmPhrase: string;
+  onConfirm: () => void | Promise<void>;
+  onCancel: () => void;
+  confirming?: boolean;
+}) {
+  const [input, setInput] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setInput("");
+    }
+  }, [open, confirmPhrase]);
+
+  if (!open) {
+    return null;
+  }
+
+  const matched = input === confirmPhrase;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="w-full max-w-md">
+        <h2 className="text-lg font-semibold text-red-300">{title}</h2>
+        <p className="mt-2 text-sm text-tresor-300">{message}</p>
+        <div className="mt-4">
+          <Input
+            label={`Type "${confirmPhrase}" to confirm`}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            autoFocus
+            autoComplete="off"
+          />
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={confirming}>
+            Cancel
+          </Button>
+          <Button type="button" variant="danger" disabled={!matched || confirming} onClick={onConfirm}>
+            {confirming ? "Deleting…" : "Delete"}
+          </Button>
+        </div>
+      </Card>
+    </div>
   );
 }

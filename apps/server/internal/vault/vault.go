@@ -176,6 +176,21 @@ func (s *Service) CreateCategory(ctx context.Context, userID, projectID uuid.UUI
 	}, nil
 }
 
+func (s *Service) DeleteCategory(ctx context.Context, userID, categoryID uuid.UUID) error {
+	if err := s.verifyCategoryOwner(ctx, userID, categoryID); err != nil {
+		return err
+	}
+
+	tag, err := s.pool.Exec(ctx, `DELETE FROM categories WHERE id = $1`, categoryID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Service) verifyCategoryOwner(ctx context.Context, userID, categoryID uuid.UUID) error {
 	var owner uuid.UUID
 	err := s.pool.QueryRow(ctx, `

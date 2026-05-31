@@ -58,6 +58,8 @@ export const api = {
     request(`/api/v1/projects/${projectId}/categories`, {}, token),
   createCategory: (token: string, projectId: string, body: unknown) =>
     request(`/api/v1/projects/${projectId}/categories`, { method: "POST", body: JSON.stringify(body) }, token),
+  deleteCategory: (token: string, id: string) =>
+    request(`/api/v1/categories/${id}`, { method: "DELETE" }, token),
   listSecrets: (token: string, categoryId: string) =>
     request(`/api/v1/categories/${categoryId}/secrets`, {}, token),
   createSecret: (token: string, categoryId: string, body: unknown) =>

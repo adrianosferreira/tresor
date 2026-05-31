@@ -57,3 +57,18 @@ export {
   encryptVaultKey,
   generateVaultKey,
 } from "./cipher.js";
+export {
+  createVaultExportFile,
+  parseVaultExportFile,
+  serializeVaultExportFile,
+  VAULT_EXPORT_FORMAT,
+  VAULT_EXPORT_VERSION,
+} from "./vault-export.js";
+export type {
+  VaultExportCategory,
+  VaultExportData,
+  VaultExportFile,
+  VaultExportProject,
+  VaultExportSecret,
+  VaultExportSecretPayload,
+} from "./vault-export.js";
