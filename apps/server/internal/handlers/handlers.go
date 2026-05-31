@@ -281,22 +281,55 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TitleEncrypted   models.EncryptedBlob `json:"titleEncrypted"`
 		PayloadEncrypted models.EncryptedBlob `json:"payloadEncrypted"`
+		Alias            *string              `json:"alias"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	secret, err := h.vault.CreateSecret(r.Context(), userID, categoryID, req.TitleEncrypted, req.PayloadEncrypted)
+	secret, err := h.vault.CreateSecret(r.Context(), userID, categoryID, req.TitleEncrypted, req.PayloadEncrypted, req.Alias)
 	if err != nil {
 		if errors.Is(err, vault.ErrNotFound) || errors.Is(err, vault.ErrForbidden) {
 			writeError(w, http.StatusNotFound, "category not found")
+			return
+		}
+		if errors.Is(err, vault.ErrInvalidAlias) {
+			writeError(w, http.StatusBadRequest, "invalid alias")
+			return
+		}
+		if errors.Is(err, vault.ErrAliasTaken) {
+			writeError(w, http.StatusConflict, "alias already in use")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to create secret")
 		return
 	}
 	writeJSON(w, http.StatusCreated, secret)
+}
+
+func (h *Handler) GetSecretByAlias(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromContext(r.Context())
+	alias := chi.URLParam(r, "*")
+	if alias == "" {
+		writeError(w, http.StatusBadRequest, "alias is required")
+		return
+	}
+
+	secret, err := h.vault.GetSecretByAlias(r.Context(), userID, alias)
+	if err != nil {
+		if errors.Is(err, vault.ErrInvalidAlias) {
+			writeError(w, http.StatusBadRequest, "invalid alias")
+			return
+		}
+		if errors.Is(err, vault.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "secret not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to get secret")
+		return
+	}
+	writeJSON(w, http.StatusOK, secret)
 }
 
 func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
@@ -310,16 +343,26 @@ func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TitleEncrypted   *models.EncryptedBlob `json:"titleEncrypted"`
 		PayloadEncrypted *models.EncryptedBlob `json:"payloadEncrypted"`
+		Alias            *string               `json:"alias"`
+		ClearAlias       bool                  `json:"clearAlias"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	secret, err := h.vault.UpdateSecret(r.Context(), userID, secretID, req.TitleEncrypted, req.PayloadEncrypted)
+	secret, err := h.vault.UpdateSecret(r.Context(), userID, secretID, req.TitleEncrypted, req.PayloadEncrypted, req.Alias, req.ClearAlias)
 	if err != nil {
 		if errors.Is(err, vault.ErrNotFound) || errors.Is(err, vault.ErrForbidden) {
 			writeError(w, http.StatusNotFound, "secret not found")
+			return
+		}
+		if errors.Is(err, vault.ErrInvalidAlias) {
+			writeError(w, http.StatusBadRequest, "invalid alias")
+			return
+		}
+		if errors.Is(err, vault.ErrAliasTaken) {
+			writeError(w, http.StatusConflict, "alias already in use")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to update secret")

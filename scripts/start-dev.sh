@@ -75,21 +75,6 @@ require_cmd() {
   fi
 }
 
-spinner_while() {
-  local message="$1"
-  shift
-  local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-  local i=0
-
-  while "$@"; do
-    printf '\r  %s %s' "${BLUE}${frames[i]}${RESET}" "$message"
-    i=$(((i + 1) % ${#frames[@]}))
-    sleep 0.1
-  done
-
-  printf '\r\033[K'
-}
-
 service_health() {
   local service="$1"
   local container_id
@@ -104,53 +89,53 @@ service_health() {
 wait_for_service() {
   local service="$1"
   local attempts="${2:-120}"
-  local compose_cmd
-  compose_cmd="$(printf '%q ' "${COMPOSE[@]}")"
-
-  spinner_while "Waiting for ${service}…" bash -c "
-    for _ in \$(seq 1 $attempts); do
-      id=\$(${compose_cmd} -f '$COMPOSE_FILE' ps -q '$service' 2>/dev/null)
-      [ -z \"\$id\" ] && sleep 1 && continue
-
-      state=\$(docker inspect --format='{{.State.Status}}' \"\$id\" 2>/dev/null || echo unknown)
-      if [ \"\$state\" = exited ] || [ \"\$state\" = dead ]; then
-        exit 0
-      fi
-
-      status=\$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \"\$id\" 2>/dev/null || echo unknown)
-      [ \"\$status\" = healthy ] && exit 1
-      sleep 1
-    done
-    exit 0
-  "
-
+  local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  local frame_i=0
   local container_id state status
-  container_id="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null || true)"
-  if [[ -n "$container_id" ]]; then
+
+  for ((n = 1; n <= attempts; n++)); do
+    printf '\r  %s %sWaiting for %s…%s (%ds)' \
+      "${BLUE}${frames[frame_i]}${RESET}" \
+      "" "$service" "${RESET}" "$n"
+    frame_i=$(((frame_i + 1) % ${#frames[@]}))
+
+    container_id="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null || true)"
+    if [[ -z "$container_id" ]]; then
+      sleep 1
+      continue
+    fi
+
     state="$(docker inspect --format='{{.State.Status}}' "$container_id" 2>/dev/null || echo unknown)"
     if [[ "$state" == "exited" || "$state" == "dead" ]]; then
+      printf '\r\033[K'
       log_fail "${service} crashed (container exited)"
       log_info "Recent logs:"
-      "${COMPOSE[@]}" -f "$COMPOSE_FILE" logs --tail=30 "$service" 2>&1 | sed 's/^/    /' >&2
+      "${COMPOSE[@]}" -f "$COMPOSE_FILE" logs --tail=40 "$service" 2>&1 | sed 's/^/    /' >&2
       exit 1
     fi
-  fi
 
-  status="$(service_health "$service")"
-  if [[ "$status" == "healthy" ]]; then
-    log_ok "${service} healthy"
-  else
-    log_fail "${service} not ready (status: ${status})"
-    log_info "Recent logs:"
-    "${COMPOSE[@]}" -f "$COMPOSE_FILE" logs --tail=30 "$service" 2>&1 | sed 's/^/    /' >&2
-    exit 1
-  fi
+    status="$(service_health "$service")"
+    if [[ "$status" == "healthy" ]]; then
+      printf '\r\033[K'
+      log_ok "${service} healthy"
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  printf '\r\033[K'
+  log_fail "${service} not ready (status: $(service_health "$service"))"
+  log_info "Recent logs:"
+  "${COMPOSE[@]}" -f "$COMPOSE_FILE" logs --tail=40 "$service" 2>&1 | sed 's/^/    /' >&2
+  exit 1
 }
 
 wait_for_services() {
   wait_for_service db 30
   wait_for_service api 60
-  wait_for_service client 120
+  # client runs pnpm install + build before Vite; allow up to 5 minutes
+  wait_for_service client 300
 }
 
 print_banner() {

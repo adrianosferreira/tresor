@@ -31,6 +31,7 @@ export async function fetchDecryptedVault(
         sortOrder: category.sortOrder,
         secrets: secrets.map((secret) => ({
           title: decryptString(fromEncryptedBlob(secret.titleEncrypted), vaultKey),
+          alias: secret.alias,
           payload: decryptSecretPayload(fromEncryptedBlob(secret.payloadEncrypted), vaultKey),
         })),
       });
@@ -99,6 +100,7 @@ export async function importVaultData(
         await api.createSecret(token, createdCategory.id, {
           titleEncrypted: toEncryptedBlob(encryptString(exportSecret.title, vaultKey)),
           payloadEncrypted: toEncryptedBlob(encryptSecretPayload(exportSecret.payload, vaultKey)),
+          alias: exportSecret.alias,
         });
       }
     }

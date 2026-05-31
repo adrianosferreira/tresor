@@ -65,6 +65,7 @@ func (s *Server) Router() http.Handler {
 			r.Delete("/categories/{id}", s.handler.DeleteCategory)
 			r.Get("/categories/{id}/secrets", s.handler.ListSecrets)
 			r.Post("/categories/{id}/secrets", s.handler.CreateSecret)
+			r.Get("/secrets/by-alias/*", s.handler.GetSecretByAlias)
 			r.Patch("/secrets/{id}", s.handler.UpdateSecret)
 			r.Delete("/secrets/{id}", s.handler.DeleteSecret)
 		})

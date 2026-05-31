@@ -4,11 +4,7 @@ set -e
 cd /app
 
 echo "→ Installing dependencies…"
-if [ -f pnpm-lock.yaml ]; then
-  pnpm install --frozen-lockfile
-else
-  pnpm install
-fi
+pnpm install --frozen-lockfile
 
 echo "→ Building workspace packages…"
 pnpm --filter @tresor/crypto --filter @tresor/shared build

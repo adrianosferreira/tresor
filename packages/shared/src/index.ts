@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { optionalAliasSchema } from "./secret.js";
+
+export { normalizeAlias, validateAlias, ALIAS_MAX_LENGTH } from "./alias.js";
+export {
+  secretPayloadSchema,
+  secretTypeSchema,
+  type SecretPayload,
+  type SecretType,
+} from "./secret.js";
 
 export const kdfParamsSchema = z.object({
   memoryKiB: z.number().int().positive(),
@@ -41,11 +50,14 @@ export const createCategoryRequestSchema = z.object({
 export const createSecretRequestSchema = z.object({
   titleEncrypted: encryptedBlobSchema,
   payloadEncrypted: encryptedBlobSchema,
+  alias: optionalAliasSchema,
 });
 
 export const updateSecretRequestSchema = z.object({
   titleEncrypted: encryptedBlobSchema.optional(),
   payloadEncrypted: encryptedBlobSchema.optional(),
+  alias: optionalAliasSchema,
+  clearAlias: z.boolean().optional(),
 });
 
 export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
@@ -73,19 +85,12 @@ export interface Category {
 export interface Secret {
   id: string;
   categoryId: string;
+  alias?: string;
   titleEncrypted: { ciphertext: string; nonce: string };
   payloadEncrypted: { ciphertext: string; nonce: string };
   version: number;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface SecretPayload {
-  username?: string;
-  password?: string;
-  url?: string;
-  notes?: string;
-  customFields?: { label: string; value: string; type: "text" | "hidden" }[];
 }
 
 export interface AuthResponse {

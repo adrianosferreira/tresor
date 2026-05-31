@@ -36,6 +36,7 @@ Master Password
 - Encrypted vault key (ciphertext + nonce)
 - Auth key hash (derived from master password — not reversible to master password)
 - Encrypted project names, category names, secret titles and payloads
+- Optional secret **aliases** (plaintext paths like `prod/stripe`) for CLI lookup — values stay encrypted; only the path is visible to the server
 
 ## Threat mitigations
 

@@ -26,31 +26,59 @@ func Connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 }
 
 func Migrate(ctx context.Context, pool *pgxpool.Pool, _ string) error {
-	sql, err := migrationFS.ReadFile("migrations/001_initial.sql")
-	if err != nil {
-		return fmt.Errorf("read migration: %w", err)
+	if err := applyMigrationIfNeeded(ctx, pool, "users", "migrations/001_initial.sql"); err != nil {
+		return err
 	}
-
-	// Simple migration runner: check if users table exists
-	var exists bool
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT FROM information_schema.tables
-			WHERE table_schema = 'public' AND table_name = 'users'
-		)
-	`).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("check migration: %w", err)
+	if err := applyMigrationIfNeeded(ctx, pool, "secrets.alias", "migrations/002_secret_aliases.sql"); err != nil {
+		return err
 	}
+	return nil
+}
 
+func applyMigrationIfNeeded(ctx context.Context, pool *pgxpool.Pool, marker, path string) error {
+	exists, err := migrationMarkerExists(ctx, pool, marker)
+	if err != nil {
+		return fmt.Errorf("check migration %s: %w", path, err)
+	}
 	if exists {
 		return nil
 	}
 
-	_, err = pool.Exec(ctx, string(sql))
+	sql, err := migrationFS.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("apply migration: %w", err)
+		return fmt.Errorf("read migration %s: %w", path, err)
+	}
+
+	if _, err := pool.Exec(ctx, string(sql)); err != nil {
+		return fmt.Errorf("apply migration %s: %w", path, err)
 	}
 
 	return nil
+}
+
+func migrationMarkerExists(ctx context.Context, pool *pgxpool.Pool, marker string) (bool, error) {
+	switch marker {
+	case "users":
+		var exists bool
+		err := pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT FROM information_schema.tables
+				WHERE table_schema = 'public' AND table_name = 'users'
+			)
+		`).Scan(&exists)
+		return exists, err
+	case "secrets.alias":
+		var exists bool
+		err := pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT FROM information_schema.columns
+				WHERE table_schema = 'public'
+				  AND table_name = 'secrets'
+				  AND column_name = 'alias'
+			)
+		`).Scan(&exists)
+		return exists, err
+	default:
+		return false, fmt.Errorf("unknown migration marker: %s", marker)
+	}
 }

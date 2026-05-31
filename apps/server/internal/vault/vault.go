@@ -216,7 +216,7 @@ func (s *Service) ListSecrets(ctx context.Context, userID, categoryID uuid.UUID)
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, category_id, title_ciphertext, title_nonce, payload_ciphertext, payload_nonce, version, created_at, updated_at
+		SELECT id, category_id, alias, title_ciphertext, title_nonce, payload_ciphertext, payload_nonce, version, created_at, updated_at
 		FROM secrets WHERE category_id = $1 ORDER BY updated_at DESC
 	`, categoryID)
 	if err != nil {
@@ -228,7 +228,7 @@ func (s *Service) ListSecrets(ctx context.Context, userID, categoryID uuid.UUID)
 	for rows.Next() {
 		var sec models.Secret
 		if err := rows.Scan(
-			&sec.ID, &sec.CategoryID, &sec.TitleCiphertext, &sec.TitleNonce,
+			&sec.ID, &sec.CategoryID, &sec.Alias, &sec.TitleCiphertext, &sec.TitleNonce,
 			&sec.PayloadCiphertext, &sec.PayloadNonce, &sec.Version, &sec.CreatedAt, &sec.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -240,9 +240,25 @@ func (s *Service) ListSecrets(ctx context.Context, userID, categoryID uuid.UUID)
 	return secrets, rows.Err()
 }
 
-func (s *Service) CreateSecret(ctx context.Context, userID, categoryID uuid.UUID, title, payload models.EncryptedBlob) (*models.Secret, error) {
+func (s *Service) CreateSecret(ctx context.Context, userID, categoryID uuid.UUID, title, payload models.EncryptedBlob, alias *string) (*models.Secret, error) {
 	if err := s.verifyCategoryOwner(ctx, userID, categoryID); err != nil {
 		return nil, err
+	}
+
+	var normalizedAlias *string
+	if alias != nil && *alias != "" {
+		n := normalizeAlias(*alias)
+		if err := validateAlias(n); err != nil {
+			return nil, err
+		}
+		taken, err := s.aliasInUse(ctx, userID, n, nil)
+		if err != nil {
+			return nil, err
+		}
+		if taken {
+			return nil, ErrAliasTaken
+		}
+		normalizedAlias = &n
 	}
 
 	titleCT, titleNonce, err := decodeBlob(title)
@@ -257,9 +273,9 @@ func (s *Service) CreateSecret(ctx context.Context, userID, categoryID uuid.UUID
 	id := uuid.New()
 	now := time.Now()
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO secrets (id, category_id, title_ciphertext, title_nonce, payload_ciphertext, payload_nonce, version, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8)
-	`, id, categoryID, titleCT, titleNonce, payloadCT, payloadNonce, now, now)
+		INSERT INTO secrets (id, category_id, alias, title_ciphertext, title_nonce, payload_ciphertext, payload_nonce, version, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, $9)
+	`, id, categoryID, normalizedAlias, titleCT, titleNonce, payloadCT, payloadNonce, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +283,7 @@ func (s *Service) CreateSecret(ctx context.Context, userID, categoryID uuid.UUID
 	return &models.Secret{
 		ID:                id,
 		CategoryID:        categoryID,
+		Alias:             normalizedAlias,
 		TitleCiphertext:   titleCT,
 		TitleNonce:        titleNonce,
 		TitleEncrypted:    title,
@@ -279,7 +296,59 @@ func (s *Service) CreateSecret(ctx context.Context, userID, categoryID uuid.UUID
 	}, nil
 }
 
-func (s *Service) UpdateSecret(ctx context.Context, userID, secretID uuid.UUID, title, payload *models.EncryptedBlob) (*models.Secret, error) {
+func (s *Service) GetSecretByAlias(ctx context.Context, userID uuid.UUID, alias string) (*models.Secret, error) {
+	n := normalizeAlias(alias)
+	if err := validateAlias(n); err != nil {
+		return nil, err
+	}
+
+	var sec models.Secret
+	err := s.pool.QueryRow(ctx, `
+		SELECT s.id, s.category_id, s.alias, s.title_ciphertext, s.title_nonce,
+		       s.payload_ciphertext, s.payload_nonce, s.version, s.created_at, s.updated_at
+		FROM secrets s
+		JOIN categories c ON c.id = s.category_id
+		JOIN projects p ON p.id = c.project_id
+		WHERE p.user_id = $1 AND lower(s.alias) = lower($2)
+	`, userID, n).Scan(
+		&sec.ID, &sec.CategoryID, &sec.Alias, &sec.TitleCiphertext, &sec.TitleNonce,
+		&sec.PayloadCiphertext, &sec.PayloadNonce, &sec.Version, &sec.CreatedAt, &sec.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	sec.TitleEncrypted = blobFromRow(sec.TitleCiphertext, sec.TitleNonce)
+	sec.PayloadEncrypted = blobFromRow(sec.PayloadCiphertext, sec.PayloadNonce)
+	return &sec, nil
+}
+
+func (s *Service) aliasInUse(ctx context.Context, userID uuid.UUID, alias string, excludeID *uuid.UUID) (bool, error) {
+	var existing uuid.UUID
+	query := `
+		SELECT s.id FROM secrets s
+		JOIN categories c ON c.id = s.category_id
+		JOIN projects p ON p.id = c.project_id
+		WHERE p.user_id = $1 AND lower(s.alias) = lower($2)
+	`
+	args := []any{userID, alias}
+	if excludeID != nil {
+		query += ` AND s.id <> $3`
+		args = append(args, *excludeID)
+	}
+	err := s.pool.QueryRow(ctx, query, args...).Scan(&existing)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *Service) UpdateSecret(ctx context.Context, userID, secretID uuid.UUID, title, payload *models.EncryptedBlob, alias *string, clearAlias bool) (*models.Secret, error) {
 	var categoryID uuid.UUID
 	err := s.pool.QueryRow(ctx, `SELECT category_id FROM secrets WHERE id = $1`, secretID).Scan(&categoryID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -311,12 +380,42 @@ func (s *Service) UpdateSecret(ctx context.Context, userID, secretID uuid.UUID, 
 		}
 	}
 
+	if clearAlias {
+		_, err = s.pool.Exec(ctx, `UPDATE secrets SET alias = NULL, updated_at = $1 WHERE id = $2`, now, secretID)
+		if err != nil {
+			return nil, err
+		}
+	} else if alias != nil {
+		if *alias == "" {
+			_, err = s.pool.Exec(ctx, `UPDATE secrets SET alias = NULL, updated_at = $1 WHERE id = $2`, now, secretID)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			n := normalizeAlias(*alias)
+			if err := validateAlias(n); err != nil {
+				return nil, err
+			}
+			taken, err := s.aliasInUse(ctx, userID, n, &secretID)
+			if err != nil {
+				return nil, err
+			}
+			if taken {
+				return nil, ErrAliasTaken
+			}
+			_, err = s.pool.Exec(ctx, `UPDATE secrets SET alias = $1, updated_at = $2 WHERE id = $3`, n, now, secretID)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	var sec models.Secret
 	err = s.pool.QueryRow(ctx, `
-		SELECT id, category_id, title_ciphertext, title_nonce, payload_ciphertext, payload_nonce, version, created_at, updated_at
+		SELECT id, category_id, alias, title_ciphertext, title_nonce, payload_ciphertext, payload_nonce, version, created_at, updated_at
 		FROM secrets WHERE id = $1
 	`, secretID).Scan(
-		&sec.ID, &sec.CategoryID, &sec.TitleCiphertext, &sec.TitleNonce,
+		&sec.ID, &sec.CategoryID, &sec.Alias, &sec.TitleCiphertext, &sec.TitleNonce,
 		&sec.PayloadCiphertext, &sec.PayloadNonce, &sec.Version, &sec.CreatedAt, &sec.UpdatedAt,
 	)
 	if err != nil {

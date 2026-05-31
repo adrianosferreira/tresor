@@ -64,6 +64,15 @@ export const api = {
     request(`/api/v1/categories/${categoryId}/secrets`, {}, token),
   createSecret: (token: string, categoryId: string, body: unknown) =>
     request(`/api/v1/categories/${categoryId}/secrets`, { method: "POST", body: JSON.stringify(body) }, token),
+  getSecretByAlias: (token: string, alias: string) =>
+    request(
+      `/api/v1/secrets/by-alias/${alias
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")}`,
+      {},
+      token,
+    ),
   updateSecret: (token: string, id: string, body: unknown) =>
     request(`/api/v1/secrets/${id}`, { method: "PATCH", body: JSON.stringify(body) }, token),
   deleteSecret: (token: string, id: string) =>

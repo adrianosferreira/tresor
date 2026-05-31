@@ -6,8 +6,12 @@ export const VAULT_EXPORT_FORMAT = "tresor-vault-export";
 export const VAULT_EXPORT_VERSION = 1;
 
 export type VaultExportSecretPayload = {
+  type?: "login" | "api_key" | "note";
   username?: string;
   password?: string;
+  apiKey?: string;
+  keyId?: string;
+  provider?: string;
   url?: string;
   notes?: string;
   customFields?: { label: string; value: string; type: "text" | "hidden" }[];
@@ -15,6 +19,7 @@ export type VaultExportSecretPayload = {
 
 export type VaultExportSecret = {
   title: string;
+  alias?: string;
   payload: VaultExportSecretPayload;
 };
 

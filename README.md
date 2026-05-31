@@ -122,7 +122,27 @@ tresor/
 | GET | `/api/v1/projects/:id/categories` | List categories |
 | POST | `/api/v1/projects/:id/categories` | Create category |
 | GET | `/api/v1/categories/:id/secrets` | List secrets |
-| POST | `/api/v1/categories/:id/secrets` | Create secret |
+| POST | `/api/v1/categories/:id/secrets` | Create secret (optional `alias`) |
+| GET | `/api/v1/secrets/by-alias/*` | Get secret by alias (ciphertext only) |
+
+## CLI (zero-knowledge retrieval)
+
+Run locally from the monorepo (Node.js 20+). With the dev API up (`./scripts/start-dev.sh`):
+
+```bash
+pnpm install
+pnpm --filter @tresor/cli build
+
+export TRESOR_API_URL=http://localhost:8080
+pnpm --filter @tresor/cli exec node dist/index.js login
+pnpm --filter @tresor/cli exec node dist/index.js secret get prod/stripe --field apiKey
+```
+
+Or link globally: `pnpm --filter @tresor/cli link --global`, then `tresor login`, `tresor secret get …`.
+
+Session file: `~/.config/tresor/session.json` (includes an unlocked vault key after `login` — keep this file private). Run `tresor logout` to remove it. For CI, use `TRESOR_PASSWORD` when you cannot cache a session. See [docs/CI.md](docs/CI.md).
+
+Secret types in the UI: **Login**, **API key**, and **Note**. Assign an optional **alias** (e.g. `prod/stripe`) when creating a secret so the CLI can fetch it by path.
 
 ## License
 

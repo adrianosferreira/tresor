@@ -54,6 +54,7 @@ type Category struct {
 type Secret struct {
 	ID                uuid.UUID `json:"id"`
 	CategoryID        uuid.UUID `json:"categoryId"`
+	Alias             *string   `json:"alias,omitempty"`
 	TitleCiphertext   []byte    `json:"-"`
 	TitleNonce        []byte    `json:"-"`
 	TitleEncrypted    EncryptedBlob `json:"titleEncrypted"`

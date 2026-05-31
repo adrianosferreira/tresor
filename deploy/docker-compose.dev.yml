@@ -43,7 +43,8 @@ services:
       - "5173:5173"
     volumes:
       - ..:/app
-      - /app/node_modules
+      - node_modules:/app/node_modules
+      - pnpm_store:/root/.local/share/pnpm/store
       - /app/packages/crypto/node_modules
       - /app/packages/shared/node_modules
       - /app/apps/client/node_modules
@@ -61,3 +62,5 @@ services:
 
 volumes:
   pgdata_dev:
+  node_modules:
+  pnpm_store:

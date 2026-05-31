@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState, type ReactNode } from "rea
 import {
   Briefcase,
   Check,
+  Code2,
   Copy,
   Download,
   ExternalLink,
@@ -24,9 +25,9 @@ import {
   decryptString,
   encryptSecretPayload,
   encryptString,
-  type SecretPayload,
 } from "@tresor/crypto";
-import type { Category, Project, Secret } from "@tresor/shared";
+import type { Category, Project, Secret, SecretPayload, SecretType } from "@tresor/shared";
+import { normalizeAlias, validateAlias } from "@tresor/shared";
 import { api, fromEncryptedBlob, toEncryptedBlob } from "../lib/api";
 import { useVaultStore } from "../store/vault";
 import { Button, Card, ConfirmDeleteDialog, Input, Textarea } from "../components/ui";
@@ -158,15 +159,21 @@ export default function VaultPage() {
   const [isCreatingSecret, setIsCreatingSecret] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [secretType, setSecretType] = useState<SecretType>("login");
   const [secretForm, setSecretForm] = useState({
     title: "",
+    alias: "",
     username: "",
     password: "",
+    apiKey: "",
+    keyId: "",
+    provider: "",
     url: "",
     notes: "",
   });
   const [error, setError] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [backupDialog, setBackupDialog] = useState<"export" | "import" | null>(null);
@@ -214,6 +221,7 @@ export default function VaultPage() {
 
   useEffect(() => {
     setPasswordVisible(false);
+    setApiKeyVisible(false);
   }, [selectedSecret?.id]);
 
   async function handleCreateProject(e: FormEvent) {
@@ -236,31 +244,75 @@ export default function VaultPage() {
     await loadCategories();
   }
 
+  function emptySecretForm() {
+    return {
+      title: "",
+      alias: "",
+      username: "",
+      password: "",
+      apiKey: "",
+      keyId: "",
+      provider: "",
+      url: "",
+      notes: "",
+    };
+  }
+
+  function buildSecretPayload(type: SecretType): SecretPayload {
+    const notes = secretForm.notes.trim() || undefined;
+    if (type === "api_key") {
+      return {
+        type,
+        apiKey: secretForm.apiKey || undefined,
+        keyId: secretForm.keyId || undefined,
+        provider: secretForm.provider || undefined,
+        url: secretForm.url || undefined,
+        notes,
+      };
+    }
+    if (type === "note") {
+      return { type, notes };
+    }
+    return {
+      type,
+      username: secretForm.username || undefined,
+      password: secretForm.password || undefined,
+      url: secretForm.url || undefined,
+      notes,
+    };
+  }
+
   function startCreatingSecret() {
     setSelectedSecret(null);
     setIsCreatingSecret(true);
-    setSecretForm({ title: "", username: "", password: "", url: "", notes: "" });
+    setSecretType("login");
+    setSecretForm(emptySecretForm());
   }
 
   async function handleCreateSecret(e: FormEvent) {
     e.preventDefault();
     if (!token || !vaultKey || !selectedCategory) return;
 
-    const payload: SecretPayload = {
-      username: secretForm.username,
-      password: secretForm.password,
-      url: secretForm.url,
-      notes: secretForm.notes,
-    };
+    const aliasInput = secretForm.alias.trim();
+    const alias = aliasInput ? normalizeAlias(aliasInput) : undefined;
+    if (alias) {
+      const aliasError = validateAlias(alias);
+      if (aliasError) {
+        setError(aliasError);
+        return;
+      }
+    }
 
+    const payload = buildSecretPayload(secretType);
     const titleEncrypted = toEncryptedBlob(encryptString(secretForm.title, vaultKey));
     const payloadEncrypted = toEncryptedBlob(encryptSecretPayload(payload, vaultKey));
 
     const created = (await api.createSecret(token, selectedCategory.id, {
       titleEncrypted,
       payloadEncrypted,
+      alias,
     })) as Secret;
-    setSecretForm({ title: "", username: "", password: "", url: "", notes: "" });
+    setSecretForm(emptySecretForm());
     setIsCreatingSecret(false);
 
     const data = (await api.listSecrets(token, selectedCategory.id)) as Secret[];
@@ -533,10 +585,52 @@ export default function VaultPage() {
                 New secret
               </h2>
               <form onSubmit={handleCreateSecret} className="space-y-3">
+                <div className="flex gap-2">
+                  {(
+                    [
+                      ["login", "Login", KeyRound],
+                      ["api_key", "API key", Code2],
+                      ["note", "Note", StickyNote],
+                    ] as const
+                  ).map(([type, label, Icon]) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setSecretType(type)}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition ${
+                        secretType === type
+                          ? "border-tresor-500 bg-tresor-800 text-white"
+                          : "border-tresor-800 text-tresor-400 hover:border-tresor-700 hover:text-tresor-200"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <Input label="Title" value={secretForm.title} onChange={(e) => setSecretForm({ ...secretForm, title: e.target.value })} required />
-                <Input label="Username" value={secretForm.username} onChange={(e) => setSecretForm({ ...secretForm, username: e.target.value })} />
-                <Input label="Password" type="password" value={secretForm.password} onChange={(e) => setSecretForm({ ...secretForm, password: e.target.value })} />
-                <Input label="URL" value={secretForm.url} onChange={(e) => setSecretForm({ ...secretForm, url: e.target.value })} />
+                <Input
+                  label="Alias (for CLI)"
+                  placeholder="prod/stripe"
+                  value={secretForm.alias}
+                  onChange={(e) => setSecretForm({ ...secretForm, alias: e.target.value })}
+                />
+                <p className="-mt-1 text-xs text-tresor-500">Optional path for tresor secret get</p>
+                {secretType === "login" && (
+                  <>
+                    <Input label="Username" value={secretForm.username} onChange={(e) => setSecretForm({ ...secretForm, username: e.target.value })} />
+                    <Input label="Password" type="password" value={secretForm.password} onChange={(e) => setSecretForm({ ...secretForm, password: e.target.value })} />
+                    <Input label="URL" value={secretForm.url} onChange={(e) => setSecretForm({ ...secretForm, url: e.target.value })} />
+                  </>
+                )}
+                {secretType === "api_key" && (
+                  <>
+                    <Input label="Provider" placeholder="stripe, aws, …" value={secretForm.provider} onChange={(e) => setSecretForm({ ...secretForm, provider: e.target.value })} />
+                    <Input label="Key ID" value={secretForm.keyId} onChange={(e) => setSecretForm({ ...secretForm, keyId: e.target.value })} />
+                    <Input label="API key" type="password" value={secretForm.apiKey} onChange={(e) => setSecretForm({ ...secretForm, apiKey: e.target.value })} required />
+                    <Input label="URL" value={secretForm.url} onChange={(e) => setSecretForm({ ...secretForm, url: e.target.value })} />
+                  </>
+                )}
                 <Textarea label="Notes" value={secretForm.notes} onChange={(e) => setSecretForm({ ...secretForm, notes: e.target.value })} rows={3} />
                 <div className="flex gap-2">
                   <Button type="submit" className="inline-flex items-center gap-2">
@@ -584,6 +678,24 @@ export default function VaultPage() {
                 )}
               </div>
               <dl className="space-y-3 text-sm">
+                {selectedSecret.alias && (
+                  <CopyableField label="Alias" value={selectedSecret.alias} icon={<Code2 className="h-3.5 w-3.5" />} />
+                )}
+                {selectedPayload.provider && (
+                  <CopyableField label="Provider" value={selectedPayload.provider} icon={<Code2 className="h-3.5 w-3.5" />} />
+                )}
+                {selectedPayload.keyId && (
+                  <CopyableField label="Key ID" value={selectedPayload.keyId} icon={<KeyRound className="h-3.5 w-3.5" />} />
+                )}
+                {selectedPayload.apiKey && (
+                  <CopyableField
+                    label="API key"
+                    value={selectedPayload.apiKey}
+                    icon={<Lock className="h-3.5 w-3.5" />}
+                    masked={!apiKeyVisible}
+                    onToggleMask={() => setApiKeyVisible((visible) => !visible)}
+                  />
+                )}
                 {selectedPayload.username && (
                   <CopyableField label="Username" value={selectedPayload.username} icon={<User className="h-3.5 w-3.5" />} />
                 )}
