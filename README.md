@@ -19,6 +19,8 @@
   ·
   <a href="#self-hosted-production">Self-host</a>
   ·
+  <a href="docs/CLI.md">CLI</a>
+  ·
   <a href="docs/SECURITY.md">Security</a>
 </p>
 
@@ -102,11 +104,13 @@ See [docs/SECURITY.md](docs/SECURITY.md) for details.
 tresor/
 ├── apps/
 │   ├── client/     # React + Vite
+│   ├── cli/        # CLI (login, secret get)
 │   └── server/     # Go API
 ├── packages/
 │   ├── crypto/     # Encryption primitives
 │   └── shared/     # Shared types & Zod schemas
 ├── deploy/         # Docker Compose + Caddy
+├── docs/           # CLI, security, …
 └── scripts/        # Dev helpers (start-dev.sh)
 ```
 
@@ -125,24 +129,18 @@ tresor/
 | POST | `/api/v1/categories/:id/secrets` | Create secret (optional `alias`) |
 | GET | `/api/v1/secrets/by-alias/*` | Get secret by alias (ciphertext only) |
 
-## CLI (zero-knowledge retrieval)
+## CLI
 
-Run locally from the monorepo (Node.js 20+). With the dev API up (`./scripts/start-dev.sh`):
+Fetch secrets from the terminal or CI (Jenkins, GitHub Actions) with zero-knowledge decryption on the agent.
 
 ```bash
-pnpm install
-pnpm --filter @tresor/cli build
-
+pnpm install && pnpm --filter @tresor/cli build
 export TRESOR_API_URL=http://localhost:8080
-pnpm --filter @tresor/cli exec node dist/index.js login
-pnpm --filter @tresor/cli exec node dist/index.js secret get prod/stripe --field apiKey
+tresor login
+tresor secret get prod/stripe --field apiKey
 ```
 
-Or link globally: `pnpm --filter @tresor/cli link --global`, then `tresor login`, `tresor secret get …`.
-
-Session file: `~/.config/tresor/session.json` (includes an unlocked vault key after `login` — keep this file private). Run `tresor logout` to remove it. For CI, use `TRESOR_PASSWORD` when you cannot cache a session. See [docs/CI.md](docs/CI.md).
-
-Secret types in the UI: **Login**, **API key**, and **Note**. Assign an optional **alias** (e.g. `prod/stripe`) when creating a secret so the CLI can fetch it by path.
+Full guide — install, aliases, session file, Jenkins pipelines: **[docs/CLI.md](docs/CLI.md)**
 
 ## License
 

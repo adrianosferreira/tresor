@@ -38,6 +38,8 @@ Master Password
 - Encrypted project names, category names, secret titles and payloads
 - Optional secret **aliases** (plaintext paths like `prod/stripe`) for CLI lookup — values stay encrypted; only the path is visible to the server
 
+CLI session files (`~/.config/tresor/session.json`) may contain a JWT and unlocked vault key after `login` — see [CLI.md](CLI.md#session-file).
+
 ## Threat mitigations
 
 | Threat | Mitigation |
