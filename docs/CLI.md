@@ -23,16 +23,6 @@ Use it when you want something like `aws secretsmanager get-secret-value`, but w
 
 ## How it works
 
-```
-┌─────────────┐     HTTPS (JWT)      ┌──────────────┐
-│  tresor CLI │ ◄─────────────────► │ Tresor API   │
-│  (local/CI) │   ciphertext only   │ + PostgreSQL │
-└─────────────┘                     └──────────────┘
-       │
-       │ decrypt with password / session vault key
-       ▼
-   stdout (e.g. api key)
-```
 
 1. **`login`** — Authenticate with email + password. Saves a session file (JWT + unlocked vault key).
 2. **`secret get <alias>`** — Load secret by [alias](#prepare-secrets-in-the-ui), decrypt, print fields or a single value with `--field`.
@@ -182,25 +172,18 @@ Treat `session.json` like a password: anyone with this file can decrypt your vau
 
 ## Local development
 
-1. Start the stack:
+Start the stack (see [README — Development](../README.md#development)):
+
+1. `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d` → UI at [http://localhost](http://localhost), API on port **8080** for the CLI.
+2. Register or log in in the browser and create a secret with an **alias**.
+4. **CLI** — from the repo root:
 
    ```bash
-   ./scripts/start-dev.sh
-   ```
-
-2. Register / log in via the UI at [http://localhost:5173](http://localhost:5173).
-
-3. Create a secret with an alias.
-
-4. Run the CLI against the API on the host:
-
-   ```bash
+   pnpm cli:build
    export TRESOR_API_URL=http://localhost:8080
-   tresor login
-   tresor secret get your/alias --field apiKey
+   pnpm tresor login
+   pnpm tresor secret get your/alias --field apiKey
    ```
-
-The dev API listens on port **8080** on the host; the browser uses the same URL (`VITE_API_URL`).
 
 ---
 

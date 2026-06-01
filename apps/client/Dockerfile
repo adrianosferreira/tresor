@@ -9,7 +9,8 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/client ./apps/client
 
-ARG VITE_API_URL=/api
+# Empty = browser calls `/api/v1/...` on the same host (Caddy → API)
+ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN pnpm install --frozen-lockfile

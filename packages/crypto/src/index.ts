@@ -1,12 +1,17 @@
 import { encryptVaultKey, generateVaultKey } from "./cipher.js";
 import { deriveKeys, generateSalt } from "./kdf.js";
-import { DEFAULT_KDF_PARAMS, SALT_LENGTH, type VaultRegistrationMaterial } from "./types.js";
+import {
+  DEFAULT_KDF_PARAMS,
+  SALT_LENGTH,
+  type KdfParams,
+  type VaultRegistrationMaterial,
+} from "./types.js";
 
 export async function createVaultRegistrationMaterial(
   masterPassword: string,
 ): Promise<VaultRegistrationMaterial> {
   const salt = generateSalt(SALT_LENGTH);
-  const kdfParams = { ...DEFAULT_KDF_PARAMS };
+  const kdfParams: KdfParams = { ...DEFAULT_KDF_PARAMS };
   const { authKey, encryptionKey } = await deriveKeys(masterPassword, salt, kdfParams);
   const vaultKey = generateVaultKey();
   const encryptedVaultKey = encryptVaultKey(vaultKey, encryptionKey);
@@ -22,7 +27,7 @@ export async function createVaultRegistrationMaterial(
 export async function unlockVault(
   masterPassword: string,
   salt: Uint8Array,
-  kdfParams: typeof DEFAULT_KDF_PARAMS,
+  kdfParams: KdfParams,
   encryptedVaultKey: { ciphertext: Uint8Array; nonce: Uint8Array },
 ): Promise<Uint8Array> {
   const { encryptionKey } = await deriveKeys(masterPassword, salt, kdfParams);

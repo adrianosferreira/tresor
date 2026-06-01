@@ -1,4 +1,13 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+/** Same-origin in production (paths are `/api/v1/...`). Vite dev hits the API on :8080. */
+function resolveApiBase(): string {
+  const configured = import.meta.env.VITE_API_URL;
+  if (configured !== undefined && configured !== "") {
+    return configured.replace(/\/$/, "");
+  }
+  return import.meta.env.DEV ? "http://localhost:8080" : "";
+}
+
+const API_URL = resolveApiBase();
 
 export class ApiError extends Error {
   constructor(
@@ -46,7 +55,21 @@ async function request<T>(
   return response.json() as Promise<T>;
 }
 
+export type AuthLookupResponse = {
+  kdfSalt: string;
+  kdfParams: {
+    memoryKiB: number;
+    iterations: number;
+    parallelism: number;
+    hashLength: number;
+  };
+};
+
 export const api = {
+  authLookup: (email: string) =>
+    request<AuthLookupResponse>(
+      `/api/v1/auth/lookup?email=${encodeURIComponent(email)}`,
+    ),
   register: (body: unknown) => request("/api/v1/auth/register", { method: "POST", body: JSON.stringify(body) }),
   login: (body: unknown) => request("/api/v1/auth/login", { method: "POST", body: JSON.stringify(body) }),
   listProjects: (token: string) => request("/api/v1/projects", {}, token),

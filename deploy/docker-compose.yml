@@ -18,24 +18,34 @@ services:
     build:
       context: ../apps/server
     restart: unless-stopped
+    ports:
+      - "${API_PORT:-8080}:8080"
     depends_on:
       db:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://tresor:${DB_PASSWORD:-tresor_dev_password}@db:5432/tresor?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      CORS_ORIGIN: ${PUBLIC_URL:-http://localhost}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       ADDR: ":8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   web:
     build:
       context: ..
       dockerfile: apps/client/Dockerfile
       args:
-        VITE_API_URL: /api
+        # Empty = same-origin `/api/v1/...` via Caddy (do not set to `/api` — paths already include it)
+        VITE_API_URL: ${VITE_API_URL:-}
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   proxy:
     image: caddy:2-alpine

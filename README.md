@@ -9,13 +9,11 @@
 </p>
 
 <p align="center">
-  Tresor is a self-hosted password vault for people who want full control without giving up security.<br>
-  Passwords, credentials, and notes are encrypted on your device before they ever reach the server —<br>
-  so even if someone gets your database, your vault stays locked without your password.
+  Tresor is a self-hosted password vault for people who want full control without giving up security. Passwords, credentials, and notes are encrypted on your device before they ever reach the server.
 </p>
 
 <p align="center">
-  <a href="#quick-start-development">Get started</a>
+  <a href="#development">Development</a>
   ·
   <a href="#self-hosted-production">Self-host</a>
   ·
@@ -31,11 +29,6 @@
 | **Zero-knowledge** | Your password and decrypted secrets never leave the browser. The server stores only ciphertext. |
 | **Self-hosted** | Run on your own machine with Docker. No cloud subscription, no vendor lock-in. |
 | **Organized** | Projects → categories → secrets. Structure your vault the way you think. |
-| **Simple ops** | One script to spin up the full dev stack. Production deploy is Docker Compose + Caddy. |
-
-```
-You encrypt locally  →  Server stores locked data  →  Only your password opens the vault
-```
 
 ## Architecture
 
@@ -43,51 +36,34 @@ You encrypt locally  →  Server stores locked data  →  Only your password ope
 - **Server** — Go API (chi + PostgreSQL)
 - **Proxy** — Caddy for routing and TLS
 
-## Quick start (development)
+## Development
 
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) & Docker Compose
+- Optional: [Node.js](https://nodejs.org/) 20+ and [pnpm](https://pnpm.io/) for CLI builds or Vite hot reload
 
-No local Node.js, pnpm, or Go required — everything runs in containers.
-
-### Start the dev stack
-
-```bash
-./scripts/start-dev.sh
-```
-
-This starts PostgreSQL, the Go API, and the Vite dev server, then streams client logs. Press **Ctrl+C** to detach (containers keep running).
-
-| Service | URL |
-|---------|-----|
-| Client | [http://localhost:5173](http://localhost:5173) |
-| API | [http://localhost:8080](http://localhost:8080) |
-
-**Useful flags:**
+### Run the stack
 
 ```bash
-./scripts/start-dev.sh --detach    # start in background, no log stream
-./scripts/start-dev.sh --rebuild   # force rebuild Docker images
-./scripts/start-dev.sh --help      # show all options
+cp .env.example deploy/.env
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 ```
 
-**Stop the stack:**
+| What | URL |
+|------|-----|
+| App (UI + API via Caddy) | [http://localhost](http://localhost) |
+| API (direct, for CLI) | [http://localhost:8080](http://localhost:8080) |
 
-```bash
-docker compose -f deploy/docker-compose.dev.yml down
-```
+First start builds images for the API and client; it can take a few minutes.
 
 ## Self-hosted (production)
 
+Use the same Compose file. Copy `.env.example` to `deploy/.env` and set strong `DB_PASSWORD` and `JWT_SECRET`. Point `PUBLIC_URL` / `CORS_ORIGIN` at your public origin and enable TLS in `deploy/Caddyfile` (`PUBLIC_DOMAIN`).
+
 ```bash
-cp .env.example .env
-# Edit .env — set DB_PASSWORD and JWT_SECRET
-
-docker compose -f deploy/docker-compose.yml up -d
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 ```
-
-Visit `http://localhost` (or configure `PUBLIC_DOMAIN` in Caddy for HTTPS).
 
 ## Security model
 
@@ -97,22 +73,6 @@ Visit `http://localhost` (or configure `PUBLIC_DOMAIN` in Caddy for HTTPS).
 4. Server verifies login via auth key proof (constant-time compare)
 
 See [docs/SECURITY.md](docs/SECURITY.md) for details.
-
-## Monorepo structure
-
-```
-tresor/
-├── apps/
-│   ├── client/     # React + Vite
-│   ├── cli/        # CLI (login, secret get)
-│   └── server/     # Go API
-├── packages/
-│   ├── crypto/     # Encryption primitives
-│   └── shared/     # Shared types & Zod schemas
-├── deploy/         # Docker Compose + Caddy
-├── docs/           # CLI, security, …
-└── scripts/        # Dev helpers (start-dev.sh)
-```
 
 ## API
 
@@ -133,15 +93,8 @@ tresor/
 
 Fetch secrets from the terminal or CI (Jenkins, GitHub Actions) with zero-knowledge decryption on the agent.
 
-```bash
-pnpm install && pnpm cli:build
-export TRESOR_API_URL=http://localhost:8080
-pnpm tresor login
-pnpm tresor secret get prod/stripe --field apiKey
-```
-
 Full guide — install, aliases, session file, Jenkins pipelines: **[docs/CLI.md](docs/CLI.md)**
 
 ## License
 
-[Tresor Personal Use License 1.0](LICENSE) — free for personal and non-commercial use. Commercial use requires a separate license from the maintainers.
+[MIT](LICENSE)

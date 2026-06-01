@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { deriveKeys, decryptVaultKey, unlockVault, bytesToBase64 } from "@tresor/crypto";
+import { deriveKeys, decryptVaultKey, bytesToBase64 } from "@tresor/crypto";
 import { LogIn, Lock, Mail, UserPlus } from "lucide-react";
 import { api, fromEncryptedBlob } from "../lib/api";
 import { useVaultStore } from "../store/vault";
@@ -22,18 +22,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const lookup = await fetch(
-        `${import.meta.env.VITE_API_URL ?? "http://localhost:8080"}/api/v1/auth/lookup?email=${encodeURIComponent(email)}`,
-      );
-
-      if (!lookup.ok) {
-        throw new Error("Invalid credentials");
-      }
-
-      const { kdfSalt, kdfParams } = (await lookup.json()) as {
-        kdfSalt: string;
-        kdfParams: { memoryKiB: number; iterations: number; parallelism: number; hashLength: number };
-      };
+      const { kdfSalt, kdfParams } = await api.authLookup(email);
 
       const salt = Uint8Array.from(atob(kdfSalt), (c) => c.charCodeAt(0));
       const { authKey, encryptionKey } = await deriveKeys(password, salt, kdfParams);
